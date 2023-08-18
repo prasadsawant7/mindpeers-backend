@@ -14,8 +14,8 @@ def create_text_labels(text: str, labels: int) -> dict:
     return data
 
 def read_text_labels() -> list:
-    datas = supabase.table("sentiment_analysis_feedback").select("id, text, labels").eq("is_trained", False).execute().data
-    return datas
+    data = supabase.table("sentiment_analysis_feedback").select("id, text, labels").eq("is_trained", False).execute().data
+    return data
 
 def update_text_labels(id: int) -> dict:
     data = supabase.table("sentiment_analysis_feedback").update({"is_trained": True}).eq("id", id).execute().data[0]
