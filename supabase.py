@@ -20,3 +20,7 @@ def read_text_labels() -> list:
 def update_text_labels(id: int) -> dict:
     data = supabase.table("sentiment_analysis_feedback").update({"is_trained": True}).eq("id", id).execute().data[0]
     return data
+
+def delete_text_labels(id: int) -> dict:
+    data = supabase.table("sentiment_analysis_feedback").delete().eq("id", id).execute().data[0]
+    return data
