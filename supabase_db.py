@@ -10,7 +10,7 @@ key: str = os.environ.get("SUPABASE_KEY")
 supabase: Client = create_client(url, key)
 
 def create_text_labels(text: str, labels: int) -> dict:
-    data = supabase.table("sentiment_analysis_feedback").insert({"text": text, "labels": labels}).execute().data[0]
+    data = supabase.table("sentiment_analysis_feedback").insert({"text": text, "labels": int(labels)}).execute().data[0]
     return data
 
 def read_text_labels() -> list:
