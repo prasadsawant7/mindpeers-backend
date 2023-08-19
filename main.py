@@ -37,8 +37,8 @@ async def send_text_to_sentiment_analysis(data: dict) -> dict:
     return { "status_code": 500, "response": "Internal Server Error" }
 
 @app.post("/api/v1/sentiment-analysis-feedback")
-async def send_feedback_to_retrain_sentiment_analysis_model(data: dict) -> dict:
-    res = create_text_labels(data["text"], data["sentiment"])
+async def send_feedback_to_retrain_sentiment_analysis_model(feedback: dict) -> dict:
+    res = create_text_labels(feedback)
     if res:
         response = {
             "id": res["id"],
@@ -49,18 +49,34 @@ async def send_feedback_to_retrain_sentiment_analysis_model(data: dict) -> dict:
         return { "status_code": 201, "response": response }
     return { "status_code": 500, "response": "Internal Server Error" }
 
-@app.put("/api/v1/retrain-sentiment-analysis/{feedback_id}")
-async def sentiment_analysis_retraining(feedback_id: int) -> dict:
-    res = update_text_labels(feedback_id)
+@app.get("/api/v1/sentiment-analysis-feedback")
+async def get_untrained_feedback() -> dict:
+    res = read_text_labels()
     if res:
-        response = {
-            "id": res["id"],
-            "text": res["text"],
-            "sentiment": res["labels"],
-            "is_trained": res["is_trained"]
-        }
-        return { "status_code": 201, "response": response }
-    return { "status_code": 500, "response": "Internal Server Error" }
+        return { "status_code": 200, "response": res }
+    return { "status_code": 204, "response": "No untrained feedbacks" }
+
+@app.put("/api/v1/retrain-sentiment-analysis")
+async def sentiment_analysis_retraining() -> dict:
+    # Fetching untrained feedbacks from DB
+    untrained_feedbacks = read_text_labels()
+    if len(untrained_feedbacks) >= 10:
+        # Model will train here
+        text = [feedback["text"] for feedback in untrained_feedbacks]
+        labels = [feedback["labels"] for feedback in untrained_feedbacks]
+
+        # After training model update untrained feedbacks status to trained feedbacks
+        response = []
+        for feedback in untrained_feedbacks:
+            data = update_text_labels(feedback["id"])
+            response.append({
+                "id": data["id"],
+                "text": data["text"],
+                "sentiment": data["labels"],
+                "is_trained": data["is_trained"]
+            })
+        return { "status_code": 200, "response": response }
+    return { "status_code": 422, "response": "Feedback are less to train the model, give 10 or more than 10 feedbacks to train the model" }
 
 @app.post("/api/v1/keyword-extraction")
 async def send_text_to_keyword_extraction(data: dict) -> dict:
