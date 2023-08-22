@@ -2,34 +2,61 @@ from simpletransformers.classification import ClassificationModel, Classificatio
 from sklearn.metrics import accuracy_score
 import torch
 import pandas as pd
+import emoji
 import os
+from data_cleaning import remove_links, remove_special_characters, remove_newline_characters, remove_whitespaces_from_beg_and_end
 
 cuda_available = torch.cuda.is_available()
 
-model_path = os.path.join(os.path.dirname(__file__), "outputs_feedback")
+sa_feedback_model_path = os.path.join(os.path.dirname(__file__), "outputs_sa_feedback")
 
-model_args = ClassificationArgs()
-model_args.num_train_epochs = 10
-model_args.learning_rate = 1e-4
-model_args.labels_list = [0, 1]
-model_args.do_lower_case = True
-model_args.output_dir = model_path
-model_args.overwrite_output_dir = True
-model_args.save_model_every_epoch = False
-model_args.save_best_model = True
+sa_feedback_model_args = ClassificationArgs()
+sa_feedback_model_args.num_train_epochs = 15
+sa_feedback_model_args.learning_rate = 1e-5
+sa_feedback_model_args.labels_list = [0, 1, 2]
+sa_feedback_model_args.do_lower_case = True
+sa_feedback_model_args.save_model_every_epoch = False
+sa_feedback_model_args.save_best_model = True
+sa_feedback_model_args.overwrite_output_dir = True
+sa_feedback_model_args.output_dir = sa_feedback_model_path
 
-model = ClassificationModel('bert', model_path, num_labels=2, args=model_args, use_cuda=cuda_available)
+sa_feedback_model = ClassificationModel(
+    model_type="bertweet",
+    model_name=sa_feedback_model_path,
+    num_labels=3,
+    args=sa_feedback_model_args,
+    use_cuda=cuda_available,
+)
 
-def send_sa_feedback(text: str, label: int):
+def retrain_model(text: list[str], labels: list[int]) -> bool:
+    print("Cleaning data...")
+    for i in range(len(text)):
+        text[i] = remove_links(text[i])
+        text[i] = remove_special_characters(text[i])
+        text[i] = remove_newline_characters(text[i])
+        text[i] = remove_whitespaces_from_beg_and_end(text[i])
+
     train_df = pd.DataFrame({
-        "text": [text],
-        "label": [label]
+        "text": text,
+        "labels": labels
     })
-    model.train_model(train_df=train_df, acc=accuracy_score)
-    predictions, _ = model.predict([text])
-    return predictions[0]
 
-def get_sentiment_after_feedback(text: str) -> str:
-    predictions, _ = model.predict([text])
-    sentiment = "positive" if predictions[0] == 1 else "negative"
-    return sentiment
+    print("Training model...")
+    results = sa_feedback_model.train_model(train_df=train_df, acc=accuracy_score)
+
+    if results:
+        return True
+
+    return False
+
+def get_sentiment_prediction_from_feedback_model(text: str) -> int:
+    print("Cleaning data...")
+    text = remove_links(text)
+    text = remove_special_characters(text)
+    text = remove_newline_characters(text)
+    text = remove_whitespaces_from_beg_and_end(text)
+
+    print("Predicting Sentiment...")
+    predictions, _ = sa_feedback_model.predict([text])
+
+    return predictions[0]

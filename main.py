@@ -2,6 +2,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from supabase_db import create_text_labels, read_text_labels, update_text_labels, delete_text_labels
 from sentiment_analysis_pretrained import get_sentiment_prediction
+from sentiment_analysis_feedback import retrain_model, get_sentiment_prediction_from_feedback_model
 from keyword_extraction_pretrained import get_keywords
 
 app = FastAPI()
@@ -21,8 +22,8 @@ def index():
 
 @app.post("/api/v1/sentiment-analysis")
 async def send_text_to_sentiment_analysis(data: dict) -> dict:
-    prediction: int = get_sentiment_prediction(data["text"])
-    if prediction:
+    prediction = get_sentiment_prediction(data["text"])
+    if prediction in [0, 1, 2]:
         if prediction == 0:
             sentiment = "Negative"
         if prediction == 1:
@@ -34,7 +35,7 @@ async def send_text_to_sentiment_analysis(data: dict) -> dict:
             "sentiment": sentiment
         }
         return { "status_code": 200, "response": response }
-    return { "status_code": 500, "response": "Internal Server Error" }
+    return { "status_code": 500, "response": "Oops! Something went wrong with model!" }
 
 @app.post("/api/v1/sentiment-analysis-feedback")
 async def send_feedback_to_retrain_sentiment_analysis_model(feedback: dict) -> dict:
@@ -56,26 +57,46 @@ async def get_untrained_feedback() -> dict:
         return { "status_code": 200, "response": res }
     return { "status_code": 204, "response": "No untrained feedbacks" }
 
+@app.post("/api/v1/retrain-sentiment-analysis")
+async def send_text_to_sentiment_analysis_retrained_model(data: dict) -> dict:
+    prediction: int = get_sentiment_prediction_from_feedback_model(data["text"])
+    if prediction in [0, 1, 2]:
+        if prediction == 0:
+            sentiment = "Negative"
+        if prediction == 1:
+            sentiment = "Neutral"
+        if prediction == 2:
+            sentiment = "Positive"
+        response = {
+            "text": data["text"],
+            "sentiment": sentiment
+        }
+        return { "status_code": 200, "response": response }
+    return { "status_code": 500, "response": "Oops! Something went wrong with model!" }
+
 @app.put("/api/v1/retrain-sentiment-analysis")
 async def sentiment_analysis_retraining() -> dict:
     # Fetching untrained feedbacks from DB
     untrained_feedbacks = read_text_labels()
     if len(untrained_feedbacks) >= 10:
-        # Model will train here
+        # Model will retrain here
         text = [feedback["text"] for feedback in untrained_feedbacks]
         labels = [feedback["labels"] for feedback in untrained_feedbacks]
-
-        # After training model update untrained feedbacks status to trained feedbacks
-        response = []
-        for feedback in untrained_feedbacks:
-            data = update_text_labels(feedback["id"])
-            response.append({
-                "id": data["id"],
-                "text": data["text"],
-                "sentiment": data["labels"],
-                "is_trained": data["is_trained"]
-            })
-        return { "status_code": 200, "response": response }
+        is_model_retrained = retrain_model(text=text, labels=labels)
+        if is_model_retrained:
+            # After training model update untrained feedbacks status to trained feedbacks
+            response = []
+            for feedback in untrained_feedbacks:
+                data = update_text_labels(feedback["id"])
+                response.append({
+                    "id": data["id"],
+                    "text": data["text"],
+                    "sentiment": data["labels"],
+                    "is_trained": data["is_trained"]
+                })
+            return { "status_code": 200, "response": response }
+        else:
+            return { "status_code": 500, "response": "Something went wrong during model retraining" }
     return { "status_code": 422, "response": "Feedback are less to train the model, give 10 or more than 10 feedbacks to train the model" }
 
 @app.post("/api/v1/keyword-extraction")
