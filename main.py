@@ -82,7 +82,7 @@ async def sentiment_analysis_retraining() -> dict:
         # Model will retrain here
         text = [feedback["text"] for feedback in untrained_feedbacks]
         labels = [feedback["labels"] for feedback in untrained_feedbacks]
-        is_model_retrained = retrain_model(text=text, labels=labels)
+        is_model_retrained = await retrain_model(text=text, labels=labels)
         if is_model_retrained:
             # After training model update untrained feedbacks status to trained feedbacks
             response = []

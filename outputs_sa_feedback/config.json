@@ -1,5 +1,5 @@
 {
-  "_name_or_path": "C:\\Users\\user\\OneDrive\\Desktop\\mindpeers\\server\\outputs_sa_feedback",
+  "_name_or_path": "/root/mindpeers/mindpeers-backend/outputs_sa_feedback",
   "architectures": [
     "RobertaForSequenceClassification"
   ],

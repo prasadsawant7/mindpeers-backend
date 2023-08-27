@@ -5,13 +5,14 @@ import pandas as pd
 import emoji
 import os
 from data_cleaning import remove_links, remove_special_characters, remove_newline_characters, remove_whitespaces_from_beg_and_end
+import asyncio
 
 cuda_available = torch.cuda.is_available()
 
 sa_feedback_model_path = os.path.join(os.path.dirname(__file__), "outputs_sa_feedback")
 
 sa_feedback_model_args = ClassificationArgs()
-sa_feedback_model_args.num_train_epochs = 15
+sa_feedback_model_args.num_train_epochs = 10
 sa_feedback_model_args.learning_rate = 1e-5
 sa_feedback_model_args.labels_list = [0, 1, 2]
 sa_feedback_model_args.do_lower_case = True
@@ -28,7 +29,7 @@ sa_feedback_model = ClassificationModel(
     use_cuda=cuda_available,
 )
 
-def retrain_model(text: list[str], labels: list[int]) -> bool:
+async def retrain_model(text: list[str], labels: list[int]) -> bool:
     print("Cleaning data...")
     for i in range(len(text)):
         text[i] = remove_links(text[i])
@@ -36,13 +37,16 @@ def retrain_model(text: list[str], labels: list[int]) -> bool:
         text[i] = remove_newline_characters(text[i])
         text[i] = remove_whitespaces_from_beg_and_end(text[i])
 
+    await asyncio.sleep(2)
+
     train_df = pd.DataFrame({
         "text": text,
         "labels": labels
     })
 
     print("Training model...")
-    results = sa_feedback_model.train_model(train_df=train_df, acc=accuracy_score)
+    await asyncio.sleep(2)
+    results = sa_feedback_model.train_model(train_df=train_df)
 
     if results:
         return True
